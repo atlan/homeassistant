@@ -1,0 +1,95 @@
+blueprint:
+  name: Zigbee2MQTT - Sonoff SNZB-01P 1-Button Scene Switch
+  description:
+    "Automate your Tuya 4-Button Scene Switch (TS0044) via Zigbee2MQTT.\nThis
+    blueprint allows you to configure actions for each button press type on the Tuya
+    4-Button Scene Switch (TS0044). The switch can be integrated with Home Assistant
+    using Zigbee2MQTT. Each button supports single press, double press, and long press
+    actions.\n**Instructions:**\n1. **Switch**: Select your Tuya 4-Button Scene Switch
+    from the entity dropdown.\n2. **Base MQTT Topic**: By default, the base MQTT topic
+    is set to `zigbee2mqtt`.\n   You can change this if your Zigbee2MQTT setup uses
+    a different base topic.\n\n3. **Actions**: For each button, configure the desired
+    actions for a single press,\n   double press, and hold.\n\n**Notes:**\n- Ensure
+    that your switch is correctly integrated with Zigbee2MQTT and Home\n  Assistant.\n-
+    The friendly name of the switch is used to dynamically construct the MQTT\n  topic
+    for handling actions.\n- This blueprint includes logging steps for debugging.
+    Check the Home Assistant\n  logs for information on received commands and matching
+    conditions.\n"
+  domain: automation
+  homeassistant:
+    min_version: 2024.6.0
+  input:
+    topic:
+      name: Topic
+      description: >
+        The main MQTT Topic for your Switch. 
+
+        Details on finding the correct topic can be found here: 
+
+        [Find my Cube Topic](https://github.com/SirGoodenough/HA_Blueprints/blob/master/Automations/Zigbee2MQTT-Aqara-Magic-Cube-T1-Pro-CTP-R01-Xiaomi-Lumi.md#to-make-the-blueprint-work-it-will-need)
+
+      default: "zigbee2mqtt/?"
+      selector:
+        text:
+          multiline: false
+    button_one_short_press:
+      name: Single Press
+      description: Action to run on single press
+      default: []
+      selector:
+        action: {}
+    button_one_double_press:
+      name: Double Press
+      description: Action to run on double press
+      default: []
+      selector:
+        action: {}
+    button_one_hold:
+      name: Hold
+      description: Action to run on hold
+      default: []
+      selector:
+        action: {}
+  source_url: https://github.com/lux4rd0/homeassistant/blob/4070c53c0597808250fbe435cedc51a8cec55409/blueprints/zigbee2mqtt_tuya_4_button_scene_switch_ts0044.yaml
+
+trigger:
+  - trigger: mqtt
+    topic: !input topic
+
+mode: single
+max_exceeded: silent
+
+variables:
+  # Get the action command.
+  command: >
+    {% if trigger.payload_json.action is defined %}
+      {{ trigger.payload_json.action }}
+    {% else %}
+      none
+    {% endif %}
+
+  # Get the topic as a variable.
+  topic_var: !input topic
+  # Generate the Friendly_name from the Topic.
+  friendly_name: '{{ topic_var.split(''/'')[1] | regex_replace("[^A-Za-z0-9_/./-]", "") }}'
+  # Generate the device_id from the Friendly_name.
+  device_id: "{{ device_id( friendly_name ) }}"
+  # Pull out the ieee identifier.
+  ieee_id_long: "{{(( device_attr( device_id, 'identifiers') |list)[0][1]) }}"
+  # Generate just the number for the ieee.
+  ieee_id: "{{ieee_id_long.split('_')[1] }}"
+
+action:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ command == 'single' }}"
+        sequence: !input button_one_short_press
+      - conditions:
+          - condition: template
+            value_template: "{{ command == 'double' }}"
+        sequence: !input button_one_double_press
+      - conditions:
+          - condition: template
+            value_template: "{{ command == 'long' }}"
+        sequence: !input button_one_hold
